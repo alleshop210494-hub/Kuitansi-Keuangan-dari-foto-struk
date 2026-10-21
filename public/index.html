@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <title>Gemini Receipt Extractor Engine</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --card: #1e293b;
+      --accent: #10b981;
+      --accent-hover: #059669;
+      --text: #f8fafc;
+      --text-dim: #94a3b8;
+      --border: #334155;
+      --success: #34d399;
+      --error: #ef4444;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, -apple-system, sans-serif; }
+    body { background: var(--bg); color: var(--text); padding: 1rem; min-height: 100vh; display: flex; justify-content: center; align-items: flex-start; }
+    
+    .container { width: 100%; max-width: 500px; margin-top: 1rem; }
+    header { text-align: center; margin-bottom: 1.5rem; }
+    header h1 { font-size: 1.4rem; letter-spacing: -0.02em; font-weight: 700; }
+    header p { color: var(--text-dim); font-size: 0.85rem; margin-top: 0.25rem; }
+
+    .scanner-box {
+      background: var(--card);
+      border: 2px dashed var(--border);
+      border-radius: 12px;
+      padding: 1.5rem;
+      text-align: center;
+      position: relative;
+      cursor: pointer;
+      transition: border-color 0.2s;
+    }
+    .scanner-box:hover { border-color: var(--accent); }
+    .scanner-box input[type="file"] {
+      position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer;
+    }
+
+    .preview-img { width: 100%; max-height: 250px; object-fit: contain; border-radius: 8px; margin-top: 1rem; display: none; }
+    
+    .btn {
+      width: 100%;
+      background: var(--accent);
+      color: white;
+      border: none;
+      padding: 0.85rem;
+      border-radius: 8px;
+      font-weight: 600;
+      font-size: 0.95rem;
+      margin-top: 1rem;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .btn:hover { background: var(--accent-hover); }
+    .btn:disabled { background: var(--border); opacity: 0.6; cursor: not-allowed; }
+
+    .status-badge {
+      display: none;
+      padding: 0.75rem;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      margin-top: 1rem;
+      text-align: center;
+    }
+    .status-badge.loading { display: block; background: #10b98122; color: #34d399; border: 1px solid #10b98144; }
+    .status-badge.error { display: block; background: #ef444422; color: #f87171; border: 1px solid #ef444444; }
+
+    .result-card {
+      display: none;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1rem;
+      margin-top: 1.5rem;
+    }
+    .result-card h3 { font-size: 0.95rem; margin-bottom: 0.75rem; border-bottom: 1px solid var(--border); padding-bottom: 0.5rem; }
+    pre { background: #090d16; padding: 0.75rem; border-radius: 6px; font-family: monospace; font-size: 0.8rem; color: var(--success); overflow-x: auto; }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <header>
+      <h1>Gemini Receipt Extractor</h1>
+      <p>Ambil foto kuitansi untuk mengekstrak data otomatis via Google AI</p>
+    </header>
+
+    <form id="scanForm">
+      <div class="scanner-box" id="dropArea">
+        <input type="file" id="cameraInput" accept="image/*" capture="environment" required>
+        <div id="uploadPlaceholder">
+          <p style="font-size: 1.8rem; margin-bottom: 0.5rem;">📸</p>
+          <p style="font-size: 0.9rem; font-weight: 600;">Ambil Foto / Pilih Struk</p>
+          <p style="font-size: 0.75rem; color: var(--text-dim); margin-top: 0.2rem;">Kamera otomatis terbuka di HP</p>
+        </div>
+        <img id="imagePreview" class="preview-img" alt="Preview Struk">
+      </div>
+
+      <button type="submit" id="submitBtn" class="btn" disabled>Proses Ekstraksi</button>
+    </form>
+
+    <div id="statusBadge" class="status-badge"></div>
+
+    <div id="resultCard" class="result-card">
+      <h3>Hasil Struktur Data JSON:</h3>
+      <pre id="jsonOutput"></pre>
+    </div>
+  </div>
+
+  <script>
+    const cameraInput = document.getElementById('cameraInput');
+    const imagePreview = document.getElementById('imagePreview');
+    const uploadPlaceholder = document.getElementById('uploadPlaceholder');
+    const submitBtn = document.getElementById('submitBtn');
+    const scanForm = document.getElementById('scanForm');
+    const statusBadge = document.getElementById('statusBadge');
+    const resultCard = document.getElementById('resultCard');
+    const jsonOutput = document.getElementById('jsonOutput');
+
+    cameraInput.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          imagePreview.src = event.target.result;
+          imagePreview.style.display = 'block';
+          uploadPlaceholder.style.display = 'none';
+          submitBtn.disabled = false;
+        };
+        reader.readAsDataURL(file);
+      }
+    });
+
+    scanForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const file = cameraInput.files[0];
+      if (!file) return;
+
+      const formData = new FormData();
+      formData.append('receipt_image', file);
+
+      submitBtn.disabled = true;
+      statusBadge.className = 'status-badge loading';
+      statusBadge.textContent = 'Memproses & mengekstrak data via Gemini AI...';
+      resultCard.style.display = 'none';
+
+      try {
+        const response = await fetch('/api/scan', {
+          method: 'POST',
+          body: formData
+        });
+
+        const result = await response.json();
+
+        if (!response.ok || !result.success) {
+          throw new Error(result.error || 'Gagal memproses gambar.');
+        }
+
+        statusBadge.style.display = 'none';
+        jsonOutput.textContent = JSON.stringify(result.data, null, 2);
+        resultCard.style.display = 'block';
+
+      } catch (err) {
+        statusBadge.className = 'status-badge error';
+        statusBadge.textContent = err.message;
+      } finally {
+        submitBtn.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>
