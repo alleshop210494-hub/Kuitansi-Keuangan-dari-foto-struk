@@ -7,9 +7,9 @@ export class AIService {
     }
     const genAI = new GoogleGenerativeAI(apiKey);
     
-    // Menggunakan model Gemini flash terbaru yang cepat dan sangat handal untuk Vision OCR
+    // Diperbarui ke model terbaru sesuai pesan error
     this.model = genAI.getGenerativeModel({
-      model: "gemini-2.5-flash",
+      model: "gemini-3.8-flash",
       generationConfig: {
         responseMimeType: "application/json"
       }

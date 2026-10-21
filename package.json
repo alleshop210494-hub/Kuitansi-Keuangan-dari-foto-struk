@@ -2,7 +2,7 @@
   "name": "production-receipt-scanner-gemini",
   "version": "1.0.0",
   "type": "module",
-  "description": "Sistem Ekstraksi Struk Keuangan dengan Google Gemini API",
+  "description": "Sistem Ekstraksi Struk Keuangan dengan Google Gemini API & Export Excel",
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js"
@@ -10,6 +10,7 @@
   "dependencies": {
     "@google/generative-ai": "^0.21.0",
     "dotenv": "^16.4.5",
+    "exceljs": "^4.4.0",
     "express": "^4.19.2",
     "multer": "^1.4.5-lts.1"
   }

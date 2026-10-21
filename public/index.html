@@ -10,6 +10,8 @@
       --card: #1e293b;
       --accent: #10b981;
       --accent-hover: #059669;
+      --excel: #16a34a;
+      --excel-hover: #15803d;
       --text: #f8fafc;
       --text-dim: #94a3b8;
       --border: #334155;
@@ -58,6 +60,12 @@
     .btn:hover { background: var(--accent-hover); }
     .btn:disabled { background: var(--border); opacity: 0.6; cursor: not-allowed; }
 
+    .btn-excel {
+      background: var(--excel);
+      margin-top: 0.5rem;
+    }
+    .btn-excel:hover { background: var(--excel-hover); }
+
     .status-badge {
       display: none;
       padding: 0.75rem;
@@ -86,7 +94,7 @@
   <div class="container">
     <header>
       <h1>Gemini Receipt Extractor</h1>
-      <p>Ambil foto kuitansi untuk mengekstrak data otomatis via Google AI</p>
+      <p>Ambil foto kuitansi untuk mengekstrak data otomatis & ekspor ke Excel</p>
     </header>
 
     <form id="scanForm">
@@ -103,6 +111,8 @@
       <button type="submit" id="submitBtn" class="btn" disabled>Proses Ekstraksi</button>
     </form>
 
+    <button id="exportBtn" class="btn btn-excel" style="display: none;">📊 Unduh Laporan Excel (<span id="scanCount">0</span> Struk)</button>
+
     <div id="statusBadge" class="status-badge"></div>
 
     <div id="resultCard" class="result-card">
@@ -116,6 +126,8 @@
     const imagePreview = document.getElementById('imagePreview');
     const uploadPlaceholder = document.getElementById('uploadPlaceholder');
     const submitBtn = document.getElementById('submitBtn');
+    const exportBtn = document.getElementById('exportBtn');
+    const scanCount = document.getElementById('scanCount');
     const scanForm = document.getElementById('scanForm');
     const statusBadge = document.getElementById('statusBadge');
     const resultCard = document.getElementById('resultCard');
@@ -164,11 +176,48 @@
         jsonOutput.textContent = JSON.stringify(result.data, null, 2);
         resultCard.style.display = 'block';
 
+        // Tampilkan tombol ekspor Excel & update jumlah struk yang di-scan
+        exportBtn.style.display = 'block';
+        scanCount.textContent = result.total_scanned;
+
       } catch (err) {
         statusBadge.className = 'status-badge error';
         statusBadge.textContent = err.message;
       } finally {
         submitBtn.disabled = false;
+      }
+    });
+
+    // Handler untuk Unduh Excel
+    exportBtn.addEventListener('click', async () => {
+      try {
+        statusBadge.className = 'status-badge loading';
+        statusBadge.textContent = 'Membuat berkas Excel...';
+
+        const response = await fetch('/api/export-excel', {
+          method: 'POST'
+        });
+
+        if (!response.ok) {
+          const errData = await response.json();
+          throw new Error(errData.error || 'Gagal mengunduh file Excel');
+        }
+
+        // Trigger unduh file di browser
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `Laporan_Struk_Keuangan_${Date.now()}.xlsx`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.URL.revokeObjectURL(url);
+
+        statusBadge.style.display = 'none';
+      } catch (err) {
+        statusBadge.className = 'status-badge error';
+        statusBadge.textContent = err.message;
       }
     });
   </script>
