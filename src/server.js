@@ -13,10 +13,8 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 
-// Penyimpanan sementara riwayat struk di memori server
 const receiptHistory = [];
 
-// Konfigurasi Multer untuk memproses file di memori
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: {
@@ -34,7 +32,6 @@ const upload = multer({
 app.use(express.static(path.join(__dirname, '../public')));
 app.use(express.json());
 
-// API Endpoint untuk scanning struk
 app.post('/api/scan', upload.single('receipt_image'), async (req, res, next) => {
   try {
     if (!req.file) {
@@ -47,7 +44,6 @@ app.post('/api/scan', upload.single('receipt_image'), async (req, res, next) => 
     const aiService = new AIService(process.env.GEMINI_API_KEY);
     const parsedData = await aiService.parseReceipt(req.file.buffer, req.file.mimetype);
 
-    // Simpan hasil ekstraksi ke riwayat
     receiptHistory.push({
       id: Date.now(),
       scanned_at: new Date().toISOString(),
@@ -65,8 +61,6 @@ app.post('/api/scan', upload.single('receipt_image'), async (req, res, next) => 
   }
 });
 
-// API Endpoint untuk Ekspor Laporan Excel
-// API Endpoint untuk Ekspor Laporan Excel
 app.post('/api/export-excel', async (req, res, next) => {
   try {
     if (!receiptHistory || receiptHistory.length === 0) {
@@ -78,7 +72,6 @@ app.post('/api/export-excel', async (req, res, next) => {
 
     const workbook = new ExcelJS.Workbook();
     
-    // Sheet 1: Rekap Transaksi Utama
     const sheetSummary = workbook.addWorksheet('Rekap Transaksi');
     sheetSummary.columns = [
       { header: 'No', key: 'no', width: 6 },
@@ -99,7 +92,6 @@ app.post('/api/export-excel', async (req, res, next) => {
       fgColor: { argb: '1E293B' }
     };
 
-    // Sheet 2: Rincian Barang / Item Detail
     const sheetItems = workbook.addWorksheet('Rincian Item');
     sheetItems.columns = [
       { header: 'No Transaksi', key: 'trans_id', width: 15 },
@@ -117,7 +109,6 @@ app.post('/api/export-excel', async (req, res, next) => {
       fgColor: { argb: '0F766E' }
     };
 
-    // Populasi Data ke Excel
     receiptHistory.forEach((item, index) => {
       const d = item.data || {};
       const merchant = d.merchant || {};
@@ -136,12 +127,10 @@ app.post('/api/export-excel', async (req, res, next) => {
         total: Number(payment.total_amount) || 0
       });
 
-      // Format Angka menggunakan indeks kolom yang aman (Kolom 7: Tax, 8: Service, 9: Total)
       summaryRow.getCell(7).numFmt = '#,##0';
       summaryRow.getCell(8).numFmt = '#,##0';
       summaryRow.getCell(9).numFmt = '#,##0';
 
-      // Tambah Rincian Items
       if (Array.isArray(d.items)) {
         d.items.forEach(it => {
           const itemRow = sheetItems.addRow({
@@ -153,7 +142,6 @@ app.post('/api/export-excel', async (req, res, next) => {
             total_price: Number(it.total_price) || 0
           });
 
-          // Kolom 5: Unit Price, Kolom 6: Total Price
           itemRow.getCell(5).numFmt = '#,##0';
           itemRow.getCell(6).numFmt = '#,##0';
         });
@@ -177,7 +165,6 @@ app.post('/api/export-excel', async (req, res, next) => {
   }
 });
 
-// Centralized Error Handler
 app.use((err, req, res, next) => {
   console.error('[SERVER ERROR]:', err.stack);
   res.status(err.status || 500).json({

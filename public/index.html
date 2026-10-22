@@ -176,7 +176,6 @@
         jsonOutput.textContent = JSON.stringify(result.data, null, 2);
         resultCard.style.display = 'block';
 
-        // Tampilkan tombol ekspor Excel & update jumlah struk yang di-scan
         exportBtn.style.display = 'block';
         scanCount.textContent = result.total_scanned;
 
@@ -188,7 +187,6 @@
       }
     });
 
-    // Handler untuk Unduh Excel
     exportBtn.addEventListener('click', async () => {
       try {
         statusBadge.className = 'status-badge loading';
@@ -203,7 +201,6 @@
           throw new Error(errData.error || 'Gagal mengunduh file Excel');
         }
 
-        // Trigger unduh file di browser
         const blob = await response.blob();
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');

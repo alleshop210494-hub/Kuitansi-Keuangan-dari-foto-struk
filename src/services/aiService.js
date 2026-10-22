@@ -7,7 +7,6 @@ export class AIService {
     }
     const genAI = new GoogleGenerativeAI(apiKey);
     
-    // Menggunakan model gemini-3.8-flash yang valid dan sesuai dengan akun Anda
     this.model = genAI.getGenerativeModel({
       model: "gemini-3.8-flash",
       generationConfig: {
@@ -72,7 +71,6 @@ Aturan Ketat:
         attempt++;
         const errorMessage = error.message || '';
         
-        // Jika mendapati error 503 / high demand, tunggu beberapa detik lalu coba lagi otomatis
         if ((errorMessage.includes('503') || errorMessage.includes('high demand')) && attempt < maxRetries) {
           await new Promise(resolve => setTimeout(resolve, 3000 * attempt));
           continue;
