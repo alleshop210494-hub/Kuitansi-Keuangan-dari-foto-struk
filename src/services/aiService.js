@@ -7,7 +7,7 @@ export class AIService {
     }
     const genAI = new GoogleGenerativeAI(apiKey);
     
-    // Diperbarui ke model terbaru sesuai pesan error
+    // Menggunakan model gemini-3.8-flash yang valid dan sesuai dengan akun Anda
     this.model = genAI.getGenerativeModel({
       model: "gemini-3.8-flash",
       generationConfig: {
@@ -53,19 +53,36 @@ Aturan Ketat:
 3. Berikan output murni dalam format JSON sesuai struktur di atas.
 `;
 
-    try {
-      const imagePart = {
-        inlineData: {
-          data: imageBuffer.toString("base64"),
-          mimeType: mimeType
-        }
-      };
+    const maxRetries = 5;
+    let attempt = 0;
 
-      const result = await this.model.generateContent([prompt, imagePart]);
-      const responseText = result.response.text();
-      return JSON.parse(responseText);
-    } catch (error) {
-      throw new Error(`Gemini AI Processing Failure: ${error.message}`);
+    while (attempt < maxRetries) {
+      try {
+        const imagePart = {
+          inlineData: {
+            data: imageBuffer.toString("base64"),
+            mimeType: mimeType
+          }
+        };
+
+        const result = await this.model.generateContent([prompt, imagePart]);
+        const responseText = result.response.text();
+        return JSON.parse(responseText);
+      } catch (error) {
+        attempt++;
+        const errorMessage = error.message || '';
+        
+        // Jika mendapati error 503 / high demand, tunggu beberapa detik lalu coba lagi otomatis
+        if ((errorMessage.includes('503') || errorMessage.includes('high demand')) && attempt < maxRetries) {
+          await new Promise(resolve => setTimeout(resolve, 3000 * attempt));
+          continue;
+        }
+        
+        if (attempt >= maxRetries) {
+          throw new Error(`Gemini AI Processing Failure setelah ${maxRetries} percobaan (Server sedang sibuk): ${errorMessage}`);
+        }
+        throw new Error(`Gemini AI Processing Failure: ${errorMessage}`);
+      }
     }
   }
 }

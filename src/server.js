@@ -66,12 +66,13 @@ app.post('/api/scan', upload.single('receipt_image'), async (req, res, next) => 
 });
 
 // API Endpoint untuk Ekspor Laporan Excel
+// API Endpoint untuk Ekspor Laporan Excel
 app.post('/api/export-excel', async (req, res, next) => {
   try {
-    if (receiptHistory.length === 0) {
+    if (!receiptHistory || receiptHistory.length === 0) {
       return res.status(400).json({
         success: false,
-        error: 'Belum ada data struk yang berhasil dipindai untuk diekspor.'
+        error: 'Belum ada data struk tersimpan (server mungkin baru saja restart). Silakan scan minimal satu struk baru terlebih dahulu.'
       });
     }
 
@@ -91,7 +92,6 @@ app.post('/api/export-excel', async (req, res, next) => {
       { header: 'Total Pembayaran', key: 'total', width: 20 }
     ];
 
-    // Styling Header
     sheetSummary.getRow(1).font = { bold: true, color: { argb: 'FFFFFF' } };
     sheetSummary.getRow(1).fill = {
       type: 'pattern',
@@ -119,45 +119,47 @@ app.post('/api/export-excel', async (req, res, next) => {
 
     // Populasi Data ke Excel
     receiptHistory.forEach((item, index) => {
-      const d = item.data;
+      const d = item.data || {};
+      const merchant = d.merchant || {};
+      const transaction = d.transaction || {};
+      const payment = d.payment || {};
       
-      // Tambah baris rekap
       const summaryRow = sheetSummary.addRow({
         no: index + 1,
         scanned_at: new Date(item.scanned_at).toLocaleString('id-ID'),
-        merchant_name: d.merchant?.name || 'Tidak Terbaca',
-        date: d.transaction?.date || '-',
-        time: d.transaction?.time || '-',
-        method: d.payment?.method || 'UNKNOWN',
-        tax: d.payment?.tax_amount || 0,
-        service: d.payment?.service_charge || 0,
-        total: d.payment?.total_amount || 0
+        merchant_name: merchant.name || 'Tidak Terbaca',
+        date: transaction.date || '-',
+        time: transaction.time || '-',
+        method: payment.method || 'UNKNOWN',
+        tax: Number(payment.tax_amount) || 0,
+        service: Number(payment.service_charge) || 0,
+        total: Number(payment.total_amount) || 0
       });
 
-      // Format Angka Mata Uang
-      summaryRow.getCell('tax').numFmt = '#,##0';
-      summaryRow.getCell('service').numFmt = '#,##0';
-      summaryRow.getCell('total').numFmt = '#,##0';
+      // Format Angka menggunakan indeks kolom yang aman (Kolom 7: Tax, 8: Service, 9: Total)
+      summaryRow.getCell(7).numFmt = '#,##0';
+      summaryRow.getCell(8).numFmt = '#,##0';
+      summaryRow.getCell(9).numFmt = '#,##0';
 
       // Tambah Rincian Items
       if (Array.isArray(d.items)) {
         d.items.forEach(it => {
           const itemRow = sheetItems.addRow({
             trans_id: index + 1,
-            merchant_name: d.merchant?.name || 'Tidak Terbaca',
+            merchant_name: merchant.name || 'Tidak Terbaca',
             item_name: it.name || '-',
-            qty: it.qty || 1,
-            unit_price: it.unit_price || 0,
-            total_price: it.total_price || 0
+            qty: Number(it.qty) || 1,
+            unit_price: Number(it.unit_price) || 0,
+            total_price: Number(it.total_price) || 0
           });
 
-          itemRow.getCell('unit_price').numFmt = '#,##0';
-          itemRow.getCell('total_price').numFmt = '#,##0';
+          // Kolom 5: Unit Price, Kolom 6: Total Price
+          itemRow.getCell(5).numFmt = '#,##0';
+          itemRow.getCell(6).numFmt = '#,##0';
         });
       }
     });
 
-    // Mengirim file Excel langsung ke browser sebagai unduhan
     res.setHeader(
       'Content-Type',
       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
